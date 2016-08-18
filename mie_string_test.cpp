@@ -8,6 +8,14 @@
 #include <cybozu/benchmark.hpp>
 #include <cybozu/mmap.hpp>
 
+#ifndef MIE_ALIGN
+	#ifdef _MSC_VER
+		#define MIE_ALIGN(x) __declspec(align(x))
+	#else
+		#define MIE_ALIGN(x) __attribute__((aligned(x)))
+	#endif
+#endif
+
 std::string g_fileName;
 
 const char *findCharAnyC(const char *p, size_t size, const char *key, size_t keySize)

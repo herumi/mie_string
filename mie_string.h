@@ -44,13 +44,6 @@ const char *mie_findCharRange(const char *p, size_t size, const char *key, size_
 #else
 	#include <x86intrin.h>
 #endif
-#ifndef MIE_ALIGN
-	#ifdef _MSC_VER
-		#define MIE_ALIGN(x) __declspec(align(x))
-	#else
-		#define MIE_ALIGN(x) __attribute__((aligned(x)))
-	#endif
-#endif
 
 #ifdef _MSC_VER
 __inline
@@ -59,7 +52,7 @@ inline
 #endif
 __m128i mie_shr_byte(__m128i v, size_t shift)
 {
-	static const unsigned char MIE_ALIGN(16) shiftPtn[32] = {
+	static const unsigned char shiftPtn[32] = {
 		0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
 		0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
 		0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80,
