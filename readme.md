@@ -1,6 +1,6 @@
 # mie_string
 
-Functions to find charaters written by SSE 4.2
+Functions to find characters by SSE 4.2
 
 # test
 
