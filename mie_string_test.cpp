@@ -234,16 +234,16 @@ const char *mie_findAlnum(const char *text, size_t size)
 
 typedef const char* (*find_t)(const char*, size_t);
 
-size_t seekText(const char *text, size_t size, find_t f)
+int seekText(const char *text, size_t size, find_t f)
 {
-	size_t n = 0;
+	int n = 0;
 	while (size > 0) {
 		const char *p = f(text, size);
 		if (p == 0) break;
-		size_t s = p - text + 1;
-		n += s;
+		size_t s = (p + 1) - text;
 		size -= s;
 		text = p + 1;
+		n++;
 	}
 	return n;
 }
@@ -251,12 +251,26 @@ size_t seekText(const char *text, size_t size, find_t f)
 void benchSub(const char *msg, const char *text, size_t size, find_t f, find_t g)
 {
 	printf("%s\n", msg);
-	size_t a = seekText(text, size, f);
-	size_t b = seekText(text, size, g);
+	int a = seekText(text, size, f);
+	int b = seekText(text, size, g);
 	CYBOZU_TEST_EQUAL(a, b);
-	const int n = 1;
-	CYBOZU_BENCH_C("mie  ", n, seekText, text, size, mie_findCRLF);
-	CYBOZU_BENCH_C("naive", n, seekText, text, size, findCRLF);
+#if 1
+	size_t c1 = 0, c2 = 0;
+	const int n = 100;
+	CYBOZU_BENCH_C("mie  ", n, c1 += seekText, text, size, f);
+	CYBOZU_BENCH_C("naive", n, c2 += seekText, text, size, g);
+	CYBOZU_TEST_EQUAL(c1, c2);
+	printf("search range=%.2f\n", size / ((c1 + 1.0) / n));
+#else
+	int c1 = 0, c2 = 0;
+	double mie, naive;
+	CYBOZU_BENCH_T(mie, c1 += seekText, text, size, f);
+	mie /= size / double(c1 + 1);
+	CYBOZU_BENCH_T(naive, c2 += seekText, text, size, g);
+	naive /= size / double(c2 + 1);
+	printf("mie  =%8.2f c=%d\n", mie, c1);
+	printf("naive=%8.2f c=%d\n", naive, c2);
+#endif
 }
 
 CYBOZU_TEST_AUTO(bench)
