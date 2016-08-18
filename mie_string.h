@@ -60,36 +60,31 @@ inline __m128i mie_shr_byte(__m128i v, size_t shift)
 #ifdef MIE_STRING_INLINE
 inline
 #endif
-__m128i mie_safe_load(const void *p, size_t size)
-{
-	if (size < 16) {
-		size_t addr = (size_t)p;
-		size_t addr2 = addr & 0xfff;
-		if (addr2 > 0xff0 && addr2 + size <= 0x1000) {
-			addr2 = addr & ~size_t(15);
-			__m128i v = _mm_load_si128((const __m128i*)addr2);
-			return mie_shr_byte(v, addr & 15);
-		}
-	}
-	return _mm_loadu_si128((const __m128i*)p);
-}
-
-#ifdef MIE_STRING_INLINE
-inline
-#endif
 const char *mie_findCharAny(const char *p, size_t size, const char *key, size_t keySize)
 {
+	const int mode = 0;
 	const __m128i r = _mm_loadu_si128((const __m128i*)key);
 	__m128i v;
 	for (;;) {
-		if (size == 0) return NULL;
-		v = mie_safe_load(p, size);
-		if (!_mm_cmpestra(r, (int)keySize, v, (int)size, 0)) break;
+		if (size >= 16) {
+			v = _mm_loadu_si128((const __m128i*)p);
+		} else {
+			if (size == 0) return NULL;
+			size_t addr = (size_t)p;
+			size_t addr2 = addr & 0xfff;
+			if (addr2 > 0xff0 && addr2 + size <= 0x1000) {
+				addr2 = addr & ~(size_t)15;
+				v = mie_shr_byte(_mm_load_si128((const __m128i*)addr2), addr & 15);
+			} else {
+				v = _mm_loadu_si128((const __m128i*)p);
+			}
+		}
+		if (!_mm_cmpestra(r, (int)keySize, v, (int)size, mode)) break;
 		p += 16;
 		size -= 16;
 	}
-	if (_mm_cmpestrc(r, (int)keySize, v, (int)size, 0)) {
-		return p += _mm_cmpestri(r, (int)keySize, v, (int)size, 0);
+	if (_mm_cmpestrc(r, (int)keySize, v, (int)size, mode)) {
+		return p += _mm_cmpestri(r, (int)keySize, v, (int)size, mode);
 	}
 	return NULL;
 }
@@ -99,17 +94,29 @@ inline
 #endif
 const char *mie_findCharRange(const char *p, size_t size, const char *key, size_t keySize)
 {
+	const int mode = 4;
 	const __m128i r = _mm_loadu_si128((const __m128i*)key);
 	__m128i v;
 	for (;;) {
-		if (size == 0) return NULL;
-		v = mie_safe_load(p, size);
-		if (!_mm_cmpestra(r, (int)keySize, v, (int)size, 4)) break;
+		if (size >= 16) {
+			v = _mm_loadu_si128((const __m128i*)p);
+		} else {
+			if (size == 0) return NULL;
+			size_t addr = (size_t)p;
+			size_t addr2 = addr & 0xfff;
+			if (addr2 > 0xff0 && addr2 + size <= 0x1000) {
+				addr2 = addr & ~(size_t)15;
+				v = mie_shr_byte(_mm_load_si128((const __m128i*)addr2), addr & 15);
+			} else {
+				v = _mm_loadu_si128((const __m128i*)p);
+			}
+		}
+		if (!_mm_cmpestra(r, (int)keySize, v, (int)size, mode)) break;
 		p += 16;
 		size -= 16;
 	}
-	if (_mm_cmpestrc(r, (int)keySize, v, (int)size, 4)) {
-		return p += _mm_cmpestri(r, (int)keySize, v, (int)size, 4);
+	if (_mm_cmpestrc(r, (int)keySize, v, (int)size, mode)) {
+		return p += _mm_cmpestri(r, (int)keySize, v, (int)size, mode);
 	}
 	return NULL;
 }
