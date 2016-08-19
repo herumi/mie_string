@@ -1,4 +1,3 @@
-#define CYBOZU_TEST_DISABLE_AUTO_RUN
 // #define MIE_STRING_INLINE
 // #define MIE_STRING_IMPL
 #include "mie_string.h"
@@ -7,6 +6,7 @@
 #include <cybozu/test.hpp>
 #include <cybozu/benchmark.hpp>
 #include <cybozu/mmap.hpp>
+#include <cybozu/xorshift.hpp>
 
 #ifndef MIE_ALIGN
 	#ifdef _MSC_VER
@@ -15,8 +15,6 @@
 		#define MIE_ALIGN(x) __attribute__((aligned(x)))
 	#endif
 #endif
-
-std::string g_fileName;
 
 const char *findCharAnyC(const char *p, size_t size, const char *key, size_t keySize)
 {
@@ -157,138 +155,242 @@ CYBOZU_TEST_AUTO(edge)
 	}
 }
 
-const char *findCRLF(const char *text, size_t size)
-{
-	for (size_t i = 0; i < size; i++) {
-		char c = text[i];
-		if (c == '\r' || c == '\n') return text + i;
-	}
-	return NULL;
-}
-
-const char *mie_findCRLF(const char *text, size_t size)
-{
-	return mie_findCharAny(text, size, "\r\n", 2);
-}
-
-const char *findDigit(const char *text, size_t size)
-{
-	for (size_t i = 0; i < size; i++) {
-		char c = text[i];
-		if (isdigit(c)) return text + i;
-	}
-	return NULL;
-}
-
-const char *mie_findDigit(const char *text, size_t size)
-{
-	return mie_findCharRange(text, size, "09", 2);
-}
-
-const char *findTab(const char *text, size_t size)
-{
-	return (const char*)memchr(text, '\t', size);
-}
-
-const char *mie_findTab(const char *text, size_t size)
-{
-	return mie_findCharAny(text, size, "\t", 1);
-}
-
-const char *findRare(const char *text, size_t size)
-{
-	return (const char*)memchr(text, '`', size);
-}
-
-const char *mie_findRare(const char *text, size_t size)
-{
-	return mie_findCharAny(text, size, "`", 1);
-}
-
-const char *findHex(const char *text, size_t size)
-{
-	for (size_t i = 0; i < size; i++) {
-		char c = text[i];
-		if (memchr("0123456789abcdefABCDEF", c, 10 + 6 + 6)) return text + i;
-	}
-	return NULL;
-}
-
-const char *mie_findHex(const char *text, size_t size)
-{
-	return mie_findCharRange(text, size, "09afAF", 6);
-}
-
-const char *findAlnum(const char *text, size_t size)
-{
-	for (size_t i = 0; i < size; i++) {
-		if (isalnum(text[i])) return text + i;
-	}
-	return NULL;
-}
-
-const char *mie_findAlnum(const char *text, size_t size)
-{
-	return mie_findCharRange(text, size, "09azAZ", 6);
-}
-
 typedef const char* (*find_t)(const char*, size_t);
 
 int seekText(const char *text, size_t size, find_t f)
 {
 	int n = 0;
-	while (size > 0) {
+	const char *end = text + size;
+	while (text < end) {
 		const char *p = f(text, size);
 		if (p == 0) break;
-		size_t s = (p + 1) - text;
-		size -= s;
 		text = p + 1;
+		size = end - text;
 		n++;
 	}
 	return n;
 }
 
-void benchSub(const char *msg, const char *text, size_t size, find_t f, find_t g)
+/*
+	fill text with any of tbl[] and put 'x' at the interval ave +/- d/2
+*/
+void makeText(std::string& text, size_t n, size_t ave, size_t d, const char *tbl)
 {
-	printf("%s\n", msg);
-	int a = seekText(text, size, f);
-	int b = seekText(text, size, g);
-	CYBOZU_TEST_EQUAL(a, b);
-#if 1
-	size_t c1 = 0, c2 = 0;
-	const int n = 100;
-	CYBOZU_BENCH_C("mie  ", n, c1 += seekText, text, size, f);
-	CYBOZU_BENCH_C("naive", n, c2 += seekText, text, size, g);
-	CYBOZU_TEST_EQUAL(c1, c2);
-	printf("search range=%.2f\n", size / ((c1 + 1.0) / n));
-#else
-	int c1 = 0, c2 = 0;
-	double mie, naive;
-	CYBOZU_BENCH_T(mie, c1 += seekText, text, size, f);
-	mie /= size / double(c1 + 1);
-	CYBOZU_BENCH_T(naive, c2 += seekText, text, size, g);
-	naive /= size / double(c2 + 1);
-	printf("mie  =%8.2f c=%d\n", mie, c1);
-	printf("naive=%8.2f c=%d\n", naive, c2);
-#endif
+	if (ave < d) throw cybozu::Exception("makeText:bad ave") << ave << d;
+	cybozu::XorShift rg;
+	text.resize(n);
+	for (size_t i = 0; i < n; i++) text[i] = '.';
+	size_t tblLen = strlen(tbl);
+	size_t pos = 0;
+	for (;;) {
+		pos += ave + (rg() % d)  - (d / 2);
+		if (pos >= n) break;
+		text[pos] = tbl[rg() % tblLen];
+	}
 }
 
-CYBOZU_TEST_AUTO(bench)
+const char *memchr_find_x(const char *text, size_t size)
 {
-	printf("file=%s\n", g_fileName.c_str());
-	cybozu::Mmap m(g_fileName);
-	const char *text = m.get();
-	size_t size = m.size();
-	benchSub("CRLF", text, size, findCRLF, mie_findCRLF);
-	benchSub("rare", text, size, findRare, mie_findRare);
-	benchSub("digit", text, size, findDigit, mie_findDigit);
-	benchSub("tab", text, size, findTab, mie_findTab);
-	benchSub("hex", text, size, findHex, mie_findHex);
-	benchSub("alnum", text, size, findAlnum, mie_findAlnum);
+	return (const char*)memchr(text, 'x', size);
 }
 
-int main(int argc, char *argv[])
+const char *loop_find_x(const char *text, size_t size)
 {
-	g_fileName = argc == 1 ? "mie_string_test.cpp" : argv[1];
-	return cybozu::test::autoRun.run(argc, argv);
+	for (size_t i = 0; i < size; i++) {
+		if (text[i] == 'x') return text + i;
+	}
+	return NULL;
+}
+
+const char *any_find_x(const char *text, size_t size)
+{
+	return mie_findCharAny(text, size, "x", 1);
+}
+
+const char *range_find_x(const char *text, size_t size)
+{
+	return mie_findCharRange(text, size, "xx", 2);
+}
+
+CYBOZU_TEST_AUTO(find1)
+{
+	puts("find x");
+	const size_t n = 1024 * 1024;
+	const struct Tbl {
+		size_t ave;
+		size_t d;
+	} tbl[] = {
+		{ 5, 2 },
+		{ 10, 5 },
+		{ 16, 3 },
+		{ 24, 4 },
+		{ 32, 5 },
+		{ 64, 5 },
+		{ 128, 5 },
+		{ 256, 5 },
+	};
+	const int C = 100;
+	std::string text;
+	for (size_t i = 0; i < CYBOZU_NUM_OF_ARRAY(tbl); i++) {
+		makeText(text, n, tbl[i].ave, tbl[i].d, "x");
+		int c0, c1;
+		printf("ave=%d\n", (int)tbl[i].ave);
+		c0 = 0; CYBOZU_BENCH_C("findAny ", C, c0 += seekText, text.c_str(), text.size(), any_find_x);
+
+		c1 = 0; CYBOZU_BENCH_C("findChar", C, c1 += seekText, text.c_str(), text.size(), range_find_x);
+		CYBOZU_TEST_EQUAL(c0, c1);
+
+		c1 = 0; CYBOZU_BENCH_C("memchr  ", C, c1 += seekText, text.c_str(), text.size(), memchr_find_x);
+		CYBOZU_TEST_EQUAL(c0, c1);
+
+		c1 = 0; CYBOZU_BENCH_C("loop    ", C, c1 += seekText, text.c_str(), text.size(), loop_find_x);
+		CYBOZU_TEST_EQUAL(c0, c1);
+	}
+}
+
+const char *loop_find_sp(const char *text, size_t size)
+{
+	for (size_t i = 0; i < size; i++) {
+		char c = text[i];
+		if (c == ' ' || c == '\r' || c == '\n' || c == '\t') return text + i;
+	}
+	return NULL;
+}
+
+const struct SpTbl {
+	char tbl[256];
+	SpTbl()
+	{
+		memset(tbl, 0, sizeof(tbl));
+		tbl[' '] = 1;
+		tbl['\r'] = 1;
+		tbl['\n'] = 1;
+		tbl['\t'] = 1;
+	}
+} spTbl;
+
+const char *tbl_find_sp(const char *text, size_t size)
+{
+	for (size_t i = 0; i < size; i++) {
+		unsigned char c = text[i];
+		if (spTbl.tbl[c]) return text + i;
+	}
+	return NULL;
+}
+
+const char *any_find_sp(const char *text, size_t size)
+{
+	return mie_findCharAny(text, size, " \r\n\t", 4);
+}
+
+CYBOZU_TEST_AUTO(find_sp)
+{
+	puts("find sp");
+	const size_t n = 1024 * 1024;
+	const struct Tbl {
+		size_t ave;
+		size_t d;
+	} tbl[] = {
+		{ 5, 2 },
+		{ 10, 5 },
+		{ 16, 3 },
+		{ 24, 4 },
+		{ 32, 5 },
+		{ 64, 5 },
+		{ 128, 5 },
+		{ 256, 5 },
+	};
+	const int C = 100;
+	std::string text;
+	for (size_t i = 0; i < CYBOZU_NUM_OF_ARRAY(tbl); i++) {
+		makeText(text, n, tbl[i].ave, tbl[i].d, " \r\n\t");
+		int c0, c1;
+		printf("ave=%d\n", (int)tbl[i].ave);
+		c0 = 0; CYBOZU_BENCH_C("findAny ", C, c0 += seekText, text.c_str(), text.size(), any_find_sp);
+
+		c1 = 0; CYBOZU_BENCH_C("loop    ", C, c1 += seekText, text.c_str(), text.size(), loop_find_sp);
+		CYBOZU_TEST_EQUAL(c0, c1);
+
+		c1 = 0; CYBOZU_BENCH_C("tbl     ", C, c1 += seekText, text.c_str(), text.size(), tbl_find_sp);
+		CYBOZU_TEST_EQUAL(c0, c1);
+	}
+}
+
+const char *loop_find_hex(const char *text, size_t size)
+{
+	for (size_t i = 0; i < size; i++) {
+		char c = text[i];
+		if ((unsigned char)(c - '0') <= 9) return text + i;
+		if ((unsigned char)(c - 'a') <= 6) return text + i;
+	}
+	return NULL;
+}
+
+const struct HexTbl {
+	char tbl[256];
+	HexTbl()
+	{
+		memset(tbl, 0, sizeof(tbl));
+		for (int i = 0; i < 10; i++) {
+			tbl['0' + i] = 1;
+		}
+		for (int i = 0; i < 6; i++) {
+			tbl['a' + i] = 1;
+		}
+	}
+} hexTbl;
+
+const char *tbl_find_hex(const char *text, size_t size)
+{
+	for (size_t i = 0; i < size; i++) {
+		unsigned char c = text[i];
+		if (hexTbl.tbl[c]) return text + i;
+	}
+	return NULL;
+}
+
+const char *any_find_hex(const char *text, size_t size)
+{
+	return mie_findCharAny(text, size, "0123456789abcdef", 16);
+}
+
+const char *range_find_hex(const char *text, size_t size)
+{
+	return mie_findCharRange(text, size, "09af", 4);
+}
+
+CYBOZU_TEST_AUTO(find_hex)
+{
+	puts("find hex");
+	const size_t n = 1024 * 1024;
+	const struct Tbl {
+		size_t ave;
+		size_t d;
+	} tbl[] = {
+		{ 5, 2 },
+		{ 10, 5 },
+		{ 16, 3 },
+		{ 24, 4 },
+		{ 32, 5 },
+		{ 64, 5 },
+		{ 128, 5 },
+		{ 256, 5 },
+	};
+	const int C = 100;
+	std::string text;
+	for (size_t i = 0; i < CYBOZU_NUM_OF_ARRAY(tbl); i++) {
+		makeText(text, n, tbl[i].ave, tbl[i].d, "0123456789abcdef");
+		int c0, c1;
+		printf("ave=%d\n", (int)tbl[i].ave);
+		c0 = 0; CYBOZU_BENCH_C("findAny  ", C, c0 += seekText, text.c_str(), text.size(), any_find_hex);
+
+		c1 = 0; CYBOZU_BENCH_C("loop     ", C, c1 += seekText, text.c_str(), text.size(), loop_find_hex);
+		CYBOZU_TEST_EQUAL(c0, c1);
+
+		c1 = 0; CYBOZU_BENCH_C("tbl      ", C, c1 += seekText, text.c_str(), text.size(), tbl_find_hex);
+		CYBOZU_TEST_EQUAL(c0, c1);
+
+		c1 = 0; CYBOZU_BENCH_C("findRange", C, c1 += seekText, text.c_str(), text.size(), range_find_hex);
+		CYBOZU_TEST_EQUAL(c0, c1);
+	}
 }
