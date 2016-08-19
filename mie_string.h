@@ -11,8 +11,18 @@
 // #define MIE_STRING_DECL
 // #define MIE_STRING_INLINE
 // #define MIE_STRING_IMPL
-#if !defined(MIE_STRING_INLINE) && !defined(MIE_STRING_DECL) && !defined(MIE_STRING_IMPL)
+#if !defined(MIE_STRING_INLINE) && !defined(MIE_STRING_DECL) && !defined(MIE_STRING_IMPL) && !defined(MIE_STRING_DECL_ASM)
 	#define MIE_STRING_INLINE
+#endif
+
+#ifdef MIE_STRING_DECL_ASM
+#if defined(__AVX__)
+	#define mie_findCharAny mie_findCharAnyAVX
+	#define mie_findCharRange mie_findCharRangeAVX
+#else
+	#define mie_findCharAny mie_findCharAnySSE
+	#define mie_findCharRange mie_findCharRangeSSE
+#endif
 #endif
 
 #ifdef __cplusplus

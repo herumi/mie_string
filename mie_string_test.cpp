@@ -394,3 +394,21 @@ CYBOZU_TEST_AUTO(find_hex)
 		CYBOZU_TEST_EQUAL(c0, c1);
 	}
 }
+
+CYBOZU_TEST_AUTO(shortFind)
+{
+	char text[] = "abcdefghijklmnopqrstuvwxyz0123456789";
+	const size_t size = strlen(text);
+	const int C = 100;
+	for (size_t i = 0; i < 16; i++) {
+		printf("i=%d\n", (int)i);
+		size_t c0 = 0, c1 = 0;
+		char k0 = 'a' + i;
+		char k[] = { k0, k0 };
+		CYBOZU_BENCH_C("memchr   ", C, text[i] = k0; c0 -= (size_t)text - (size_t)memchr, text, k0, size);
+		CYBOZU_BENCH_C("findAny  ", C, text[i] = k0; c1 -= (size_t)text - (size_t)mie_findCharAny, text, size, k, 1);
+//		CYBOZU_BENCH_C("findRange", C, text[i] = k0; c2 -= (size_t)text - (size_t)mie_findCharRange, text, size, k, 2);
+		CYBOZU_TEST_EQUAL(c0, c1);
+//		CYBOZU_TEST_EQUAL(c0, c2);
+	}
+}
