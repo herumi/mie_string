@@ -60,7 +60,7 @@ __inline
 #else
 inline
 #endif
-__m128i mie_shr_byte(__m128i v, size_t shift)
+__m128i mie_safe_load(const void *p, size_t size)
 {
 	static const unsigned char shiftPtn[32] = {
 		0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
@@ -68,8 +68,16 @@ __m128i mie_shr_byte(__m128i v, size_t shift)
 		0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80,
 		0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80
 	};
-	__m128i s = _mm_loadu_si128((const __m128i*)(shiftPtn + shift));
-	return _mm_shuffle_epi8(v, s);
+	size_t addr = (size_t)p;
+	size_t addr2 = addr & 0xfff;
+	if (addr2 > 0xff0 && addr2 + size <= 0x1000) {
+		addr2 = addr & ~(size_t)15;
+		size_t shift = addr & 15;
+		v = _mm_loadu_si128((const __m128i*)(shiftPtn + shift));
+		return _mm_shuffle_epi8(_mm_load_si128((const __m128i*)addr2), v);
+	} else {
+		return _mm_loadu_si128((const __m128i*)p);
+	}
 }
 
 #define MIE_FIND_CHAR_GENERIC(mode) \
@@ -80,14 +88,7 @@ __m128i mie_shr_byte(__m128i v, size_t shift)
 			v = _mm_loadu_si128((const __m128i*)p); \
 		} else { \
 			if (size == 0) return NULL; \
-			size_t addr = (size_t)p; \
-			size_t addr2 = addr & 0xfff; \
-			if (addr2 > 0xff0 && addr2 + size <= 0x1000) { \
-				addr2 = addr & ~(size_t)15; \
-				v = mie_shr_byte(_mm_load_si128((const __m128i*)addr2), addr & 15); \
-			} else { \
-				v = _mm_loadu_si128((const __m128i*)p); \
-			} \
+			v = mie_safe_load(p, size); \
 		} \
 		if (!_mm_cmpestra(r, (int)keySize, v, (int)size, mode)) break; \
 		p += 16; \
