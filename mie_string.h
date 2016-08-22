@@ -80,25 +80,6 @@ __m128i mie_safe_load(const void *p, size_t size)
 	}
 }
 
-#define MIE_FIND_CHAR_GENERIC2(mode) \
-	const __m128i r = _mm_loadu_si128((const __m128i*)key); \
-	__m128i v; \
-	for (;;) { \
-		if (size >= 16) { \
-			v = _mm_loadu_si128((const __m128i*)p); \
-		} else { \
-			if (size == 0) return NULL; \
-			v = mie_safe_load(p, size); \
-		} \
-		if (!_mm_cmpestra(r, (int)keySize, v, (int)size, mode)) break; \
-		p += 16; \
-		size -= 16; \
-	} \
-	if (_mm_cmpestrc(r, (int)keySize, v, (int)size, mode)) { \
-		return p += _mm_cmpestri(r, (int)keySize, v, (int)size, mode); \
-	} \
-	return NULL;
-
 #define MIE_FIND_CHAR_GENERIC(mode) \
 	const __m128i r = _mm_loadu_si128((const __m128i*)key); \
 	__m128i v; \
@@ -107,7 +88,7 @@ __m128i mie_safe_load(const void *p, size_t size)
 		size_t left = size & ~15; \
 		do { \
 			v = _mm_loadu_si128((const __m128i*)p); \
-			c = _mm_cmpestri(r, keySize, v, left, mode); \
+			c = _mm_cmpestri(r, (int)keySize, v, (int)left, mode); \
 			if (c != 16) { \
 				p += c; \
 				return p; \
@@ -119,7 +100,7 @@ __m128i mie_safe_load(const void *p, size_t size)
 	size &= 15; \
 	if (size == 0) return NULL; \
 	v = mie_safe_load(p, size); \
-	c = _mm_cmpestri(r, keySize, v, size, mode); \
+	c = _mm_cmpestri(r, (int)keySize, v, (int)size, mode); \
 	if (c != 16) { \
 		return p + c; \
 	} \
