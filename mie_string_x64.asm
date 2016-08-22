@@ -48,6 +48,55 @@ db 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80,
 	_movdqu %1, xmm1, [rdx]
 	mov	eax, ecx
 	mov rdx, rsi
+	cmp rdx, 16
+	jb .size_lt_16
+	and rdx, ~15
+.lp:
+	_pcmpestri %1, xmm1, [rdi], %2
+	cmp ecx, 16
+	jne .found
+	add rdi, 16
+	sub rdx, 16
+	jnz .lp
+
+	mov edx, esi
+	and edx, 15
+
+.size_lt_16:
+	test edx, edx
+	je .notfound
+	mov	ecx, edi
+	and	ecx, 4095
+	cmp	ecx, 4080
+	jbe	.load
+	add	ecx, edx
+	cmp	ecx, 4096
+	ja	.load
+	mov	rcx, rdi
+	and	rcx, -16
+	_movdqa %1, xmm0, [rcx]
+	mov ecx, edi
+	and ecx, 15
+	_movdqu %1, xmm2, [shiftPtn + rcx]
+	_pshufb %1, xmm0, xmm2
+	jmp .last
+.load:
+	_movdqu %1, xmm0, [rdi]
+.last:
+	_pcmpestri %1, xmm1, xmm0, %2
+	jnc .notfound
+.found:
+	lea rax, [rdi + rcx]
+	ret
+.notfound:
+	xor eax, eax
+	ret
+%endmacro
+
+%macro findCharGeneric2 2
+	_movdqu %1, xmm1, [rdx]
+	mov	eax, ecx
+	mov rdx, rsi
 	jmp .L0
 	align 16
 .next:

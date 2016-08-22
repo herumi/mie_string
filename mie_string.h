@@ -73,14 +73,14 @@ __m128i mie_safe_load(const void *p, size_t size)
 	if (addr2 > 0xff0 && addr2 + size <= 0x1000) {
 		addr2 = addr & ~(size_t)15;
 		size_t shift = addr & 15;
-		v = _mm_loadu_si128((const __m128i*)(shiftPtn + shift));
-		return _mm_shuffle_epi8(_mm_load_si128((const __m128i*)addr2), v);
+		__m128i ptn = _mm_loadu_si128((const __m128i*)(shiftPtn + shift));
+		return _mm_shuffle_epi8(_mm_load_si128((const __m128i*)addr2), ptn);
 	} else {
 		return _mm_loadu_si128((const __m128i*)p);
 	}
 }
 
-#define MIE_FIND_CHAR_GENERIC(mode) \
+#define MIE_FIND_CHAR_GENERIC2(mode) \
 	const __m128i r = _mm_loadu_si128((const __m128i*)key); \
 	__m128i v; \
 	for (;;) { \
@@ -96,6 +96,32 @@ __m128i mie_safe_load(const void *p, size_t size)
 	} \
 	if (_mm_cmpestrc(r, (int)keySize, v, (int)size, mode)) { \
 		return p += _mm_cmpestri(r, (int)keySize, v, (int)size, mode); \
+	} \
+	return NULL;
+
+#define MIE_FIND_CHAR_GENERIC(mode) \
+	const __m128i r = _mm_loadu_si128((const __m128i*)key); \
+	__m128i v; \
+	int c; \
+	if (size >= 16) { \
+		size_t left = size & ~15; \
+		do { \
+			v = _mm_loadu_si128((const __m128i*)p); \
+			c = _mm_cmpestri(r, keySize, v, left, mode); \
+			if (c != 16) { \
+				p += c; \
+				return p; \
+			} \
+			p += 16; \
+			left -= 16; \
+		} while (left != 0); \
+	} \
+	size &= 15; \
+	if (size == 0) return NULL; \
+	v = mie_safe_load(p, size); \
+	c = _mm_cmpestri(r, keySize, v, size, mode); \
+	if (c != 16) { \
+		return p + c; \
 	} \
 	return NULL;
 
