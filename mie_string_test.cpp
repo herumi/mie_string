@@ -5,7 +5,7 @@
 #include <string.h>
 #include <cybozu/test.hpp>
 #include <cybozu/benchmark.hpp>
-#include <cybozu/mmap.hpp>
+#include <cybozu/exception.hpp>
 #include <cybozu/xorshift.hpp>
 
 #ifndef MIE_ALIGN
