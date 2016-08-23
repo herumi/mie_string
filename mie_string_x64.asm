@@ -82,12 +82,7 @@ db 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80,
 	and rdx, ~15
 .lp:
 	_pcmpestri %1, xmm1, [_text], %2
-;	ja .next
-;	jnc .notfound
-;	jmp .found
-;.next:
-	cmp ecx, 16
-	jne .found
+	jna .exitLoop
 	add _text, 16
 	sub rdx, 16
 	jnz .lp
@@ -118,6 +113,7 @@ db 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80,
 	_movdqu %1, xmm0, [_text]
 .last:
 	_pcmpestri %1, xmm1, xmm0, %2
+.exitLoop:
 	jnc .notfound
 .found:
 	lea rax, [_text + rcx]
