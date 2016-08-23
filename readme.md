@@ -2,6 +2,11 @@
 
 Functions to find characters by SSE 4.2
 
+# Supported CPU and OS
+
+* Intel 64-bit Core i or later
+* 64-bit Linux and 64-bit Windows
+
 # test
 
 ```
@@ -13,6 +18,28 @@ cd mie_string
 g++ mie_string_test.cpp -Ofast -march=native -I ../../cybozulib/include
 ./a.out <text file>
 ```
+
+# How to use
+
+* Linux
+```
+nasm -f elf64 mie_string_x86.asm
+```
+Include `mie_string.h` and link `mie_string_x86.o`.
+
+* Windows
+```
+nasm -f win64 -D_WIN64 mie_string_x86.asm
+```
+Include `mie_string.h` and link `mie_string_x86.obj`.
+
+* Use intrinsic
+```
+#define MIE_STRING_INLINE
+#include "mie_string.h"
+```
+It is easy to use, but a little slower than using `mie_string_x86.asm`.
+
 
 # API
 
