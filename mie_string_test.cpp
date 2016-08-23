@@ -157,8 +157,10 @@ CYBOZU_TEST_AUTO(edge)
 
 typedef const char* (*find_t)(const char*, size_t);
 
-int seekText(const char *text, size_t size, find_t f)
+int seekText(const std::string& s, find_t f)
 {
+	const char *text = s.c_str();
+	size_t size = s.size();
 	int n = 0;
 	const char *end = text + size;
 	while (text < end) {
@@ -171,21 +173,34 @@ int seekText(const char *text, size_t size, find_t f)
 	return n;
 }
 
+int seekText_by_find_first_of(const std::string& s, const std::string& key)
+{
+	size_t pos = 0;
+	size_t size = s.size();
+	int n = 0;
+	while (pos < size) {
+		size_t p = s.find_first_of(key, pos);
+		if (p == std::string::npos) break;
+		pos = p + 1;
+		n++;
+	}
+	return n;
+}
+
 /*
-	fill text with any of tbl[] and put 'x' at the interval ave +/- d/2
+	fill text with any of tbl and put 'x' at the interval ave +/- d/2
 */
-void makeText(std::string& text, size_t n, size_t ave, size_t d, const char *tbl)
+void makeText(std::string& text, size_t n, size_t ave, size_t d, const std::string& tbl)
 {
 	if (ave < d) throw cybozu::Exception("makeText:bad ave") << ave << d;
 	cybozu::XorShift rg;
 	text.resize(n);
 	for (size_t i = 0; i < n; i++) text[i] = '.';
-	size_t tblLen = strlen(tbl);
 	size_t pos = 0;
 	for (;;) {
 		pos += ave + (rg() % d)  - (d / 2);
 		if (pos >= n) break;
-		text[pos] = tbl[rg() % tblLen];
+		text[pos] = tbl[rg() % tbl.size()];
 	}
 }
 
@@ -231,19 +246,23 @@ CYBOZU_TEST_AUTO(find1)
 	};
 	const int C = 100;
 	std::string text;
+	const std::string key = "x";
 	for (size_t i = 0; i < CYBOZU_NUM_OF_ARRAY(tbl); i++) {
-		makeText(text, n, tbl[i].ave, tbl[i].d, "x");
+		makeText(text, n, tbl[i].ave, tbl[i].d, key);
 		int c0, c1;
 		printf("ave=%d\n", (int)tbl[i].ave);
-		c0 = 0; CYBOZU_BENCH_C("findAny ", C, c0 += seekText, text.c_str(), text.size(), any_find_x);
+		c0 = 0; CYBOZU_BENCH_C("findAny ", C, c0 += seekText, text, any_find_x);
 
-		c1 = 0; CYBOZU_BENCH_C("findChar", C, c1 += seekText, text.c_str(), text.size(), range_find_x);
+		c1 = 0; CYBOZU_BENCH_C("findChar", C, c1 += seekText, text, range_find_x);
 		CYBOZU_TEST_EQUAL(c0, c1);
 
-		c1 = 0; CYBOZU_BENCH_C("memchr  ", C, c1 += seekText, text.c_str(), text.size(), memchr_find_x);
+		c1 = 0; CYBOZU_BENCH_C("memchr  ", C, c1 += seekText, text, memchr_find_x);
 		CYBOZU_TEST_EQUAL(c0, c1);
 
-		c1 = 0; CYBOZU_BENCH_C("loop    ", C, c1 += seekText, text.c_str(), text.size(), loop_find_x);
+		c1 = 0; CYBOZU_BENCH_C("loop    ", C, c1 += seekText, text, loop_find_x);
+		CYBOZU_TEST_EQUAL(c0, c1);
+
+		c1 = 0; CYBOZU_BENCH_C("first_of", C, c1 += seekText_by_find_first_of, text, key);
 		CYBOZU_TEST_EQUAL(c0, c1);
 	}
 }
@@ -302,16 +321,20 @@ CYBOZU_TEST_AUTO(find_sp)
 	};
 	const int C = 100;
 	std::string text;
+	const std::string key = " \r\n\t";
 	for (size_t i = 0; i < CYBOZU_NUM_OF_ARRAY(tbl); i++) {
-		makeText(text, n, tbl[i].ave, tbl[i].d, " \r\n\t");
+		makeText(text, n, tbl[i].ave, tbl[i].d, key);
 		int c0, c1;
 		printf("ave=%d\n", (int)tbl[i].ave);
-		c0 = 0; CYBOZU_BENCH_C("findAny ", C, c0 += seekText, text.c_str(), text.size(), any_find_sp);
+		c0 = 0; CYBOZU_BENCH_C("findAny ", C, c0 += seekText, text, any_find_sp);
 
-		c1 = 0; CYBOZU_BENCH_C("loop    ", C, c1 += seekText, text.c_str(), text.size(), loop_find_sp);
+		c1 = 0; CYBOZU_BENCH_C("loop    ", C, c1 += seekText, text, loop_find_sp);
 		CYBOZU_TEST_EQUAL(c0, c1);
 
-		c1 = 0; CYBOZU_BENCH_C("tbl     ", C, c1 += seekText, text.c_str(), text.size(), tbl_find_sp);
+		c1 = 0; CYBOZU_BENCH_C("tbl     ", C, c1 += seekText, text, tbl_find_sp);
+		CYBOZU_TEST_EQUAL(c0, c1);
+
+		c1 = 0; CYBOZU_BENCH_C("first_of", C, c1 += seekText_by_find_first_of, text, key);
 		CYBOZU_TEST_EQUAL(c0, c1);
 	}
 }
@@ -378,19 +401,23 @@ CYBOZU_TEST_AUTO(find_hex)
 	};
 	const int C = 100;
 	std::string text;
+	const std::string key = "0123456789abcdef";
 	for (size_t i = 0; i < CYBOZU_NUM_OF_ARRAY(tbl); i++) {
-		makeText(text, n, tbl[i].ave, tbl[i].d, "0123456789abcdef");
+		makeText(text, n, tbl[i].ave, tbl[i].d, key);
 		int c0, c1;
 		printf("ave=%d\n", (int)tbl[i].ave);
-		c0 = 0; CYBOZU_BENCH_C("findAny  ", C, c0 += seekText, text.c_str(), text.size(), any_find_hex);
+		c0 = 0; CYBOZU_BENCH_C("findAny  ", C, c0 += seekText, text, any_find_hex);
 
-		c1 = 0; CYBOZU_BENCH_C("loop     ", C, c1 += seekText, text.c_str(), text.size(), loop_find_hex);
+		c1 = 0; CYBOZU_BENCH_C("loop     ", C, c1 += seekText, text, loop_find_hex);
 		CYBOZU_TEST_EQUAL(c0, c1);
 
-		c1 = 0; CYBOZU_BENCH_C("tbl      ", C, c1 += seekText, text.c_str(), text.size(), tbl_find_hex);
+		c1 = 0; CYBOZU_BENCH_C("tbl      ", C, c1 += seekText, text, tbl_find_hex);
 		CYBOZU_TEST_EQUAL(c0, c1);
 
-		c1 = 0; CYBOZU_BENCH_C("findRange", C, c1 += seekText, text.c_str(), text.size(), range_find_hex);
+		c1 = 0; CYBOZU_BENCH_C("findRange", C, c1 += seekText, text, range_find_hex);
+		CYBOZU_TEST_EQUAL(c0, c1);
+
+		c1 = 0; CYBOZU_BENCH_C("first_of", C, c1 += seekText_by_find_first_of, text, key);
 		CYBOZU_TEST_EQUAL(c0, c1);
 	}
 }
