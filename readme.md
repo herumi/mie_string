@@ -7,18 +7,6 @@ Functions to find characters by SSE 4.2
 * Intel 64-bit Core i or later
 * 64-bit Linux and 64-bit Windows
 
-# test
-
-```
-mkdir work
-cd work
-git clone git://github.com/herumi/mie_string.git
-git clone git://github.com/herumi/cybozulib.git
-cd mie_string
-g++ mie_string_test.cpp -Ofast -march=native -I ../../cybozulib/include
-./a.out <text file>
-```
-
 # How to use
 
 * Linux
@@ -71,6 +59,17 @@ mie_findCharAny(text, size, "\r\n \t", 4);
 * To find alphabet(a-zA-Z) and number(0-9)
 ```
 mie_findCharRange(text, size, "azAZ09", 6);
+```
+
+# Test and benchmark
+
+```
+mkdir work
+cd work
+git clone git://github.com/herumi/mie_string.git
+git clone git://github.com/herumi/cybozulib.git
+cd mie_string
+make test
 ```
 
 # License
