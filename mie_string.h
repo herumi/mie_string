@@ -5,6 +5,8 @@
 	@author MITSUNARI Shigeo(@herumi)
 	@license modified new BSD license
 	http://opensource.org/licenses/BSD-3-Clause
+
+	https://github.com/herumi/mie_string
 */
 #include <stdlib.h>
 

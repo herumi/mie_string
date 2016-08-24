@@ -1,4 +1,10 @@
 ;
+; @author MITSUNARI Shigeo(@herumi)
+; @license modified new BSD license
+; http://opensource.org/licenses/BSD-3-Clause
+;
+; https://github.com/herumi/mie_string
+;
 ; for Win64
 ; nasm -f win64 -D_WIN64 mie_string_x86.asm
 ; for Linux 64
