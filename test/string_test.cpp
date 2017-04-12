@@ -118,8 +118,13 @@ struct FquickSearch {
 
 #ifdef USE_BOOST_BM
 #include <boost/algorithm/searching/boyer_moore.hpp>
+#include <boost/algorithm/searching/boyer_moore_horspool.hpp>
+#include <boost/algorithm/searching/knuth_morris_pratt.hpp>
 struct Frange_boost_bm_find {
-	boost::algorithm::boyer_moore<const char*> *bm_;
+//	typedef boost::algorithm::boyer_moore<const char*> Algo;
+	typedef boost::algorithm::boyer_moore_horspool<const char*> Algo;
+//	typedef boost::algorithm::knuth_morris_pratt_search<const char*> Algo;
+	Algo *bm_;
 	~Frange_boost_bm_find()
 	{
 		delete bm_;
@@ -135,7 +140,7 @@ struct Frange_boost_bm_find {
 		end_ = str_ + str.size();
 		key_ = &key[0];
 		keySize_ = key.size();
-		bm_ = new boost::algorithm::boyer_moore<const char*>(key_, key_ + keySize_);
+		bm_ = new Algo(key_, key_ + keySize_);
 	}
 	Frange_boost_bm_find() : bm_(0), str_(0), end_(0), key_(0), keySize_(0) { }
 	const char *begin() const { return str_; }
