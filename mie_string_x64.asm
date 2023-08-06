@@ -17,6 +17,9 @@ global mie_findCharAnyAVX
 
 default rel
 
+%ifidn __OUTPUT_FORMAT__,elf64
+section .note.GNU-stack noalloc noexec nowrite progbits
+%endif
 segment .data
 align 32
 shiftPtn:
